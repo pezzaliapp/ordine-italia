@@ -1,0 +1,14 @@
+# Listini, ordini e dati riservati NON devono mai finire nel repository
+*.xlsx
+*.xls
+*.xlsm
+*.ods
+*.csv
+*.pdf
+*.doc
+*.docx
+*config*.json
+!manifest.webmanifest
+.DS_Store
+Thumbs.db
+node_modules/

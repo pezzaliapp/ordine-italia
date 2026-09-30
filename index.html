@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d2730">
+<meta name="description" content="Compilazione ordini e sostituzioni in garanzia con PDF, per agenti.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ordine Italia">
+<title>Ordine Italia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="" width="28" height="28">
+    <span>Ordine Italia</span>
+  </div>
+  <nav class="tabs" aria-label="Sezioni">
+    <button class="tab is-active" data-view="ordine"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7"/></svg><span>Ordine</span></button>
+    <button class="tab" data-view="garanzia"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z M9 12l2 2 4-4"/></svg><span>Garanzia</span></button>
+    <button class="tab" data-view="archivio"><svg viewBox="0 0 24 24"><path d="M4 5h16v4H4z M5 9v10h14V9 M10 13h4"/></svg><span>Archivio</span></button>
+    <button class="tab" data-view="impostazioni"><svg viewBox="0 0 24 24"><path d="M4 7h10 M18 7h2 M4 17h4 M12 17h8 M14 5v4 M8 15v4"/></svg><span>Impostazioni</span></button>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ======================= ORDINE ======================= -->
+<section class="view is-active" id="view-ordine" data-form="ordine">
+  <div class="view-head">
+    <h1>Offerta / ordine cliente</h1>
+    <div class="head-actions">
+      <button class="btn ghost" data-act="nuovo">Nuovo ordine</button>
+    </div>
+  </div>
+  <p class="notice" id="cutoff-notice" hidden></p>
+
+  <fieldset class="box">
+    <legend>Documento</legend>
+    <div class="grid g4">
+      <label class="fld"><span>Tipo di fornitura</span>
+        <select data-f="tipo">
+          <option>Vendita</option><option>Offerta</option><option>Conto visione</option><option>Conto vendita</option>
+        </select>
+      </label>
+      <label class="fld"><span>Merce</span>
+        <select data-f="merce">
+          <option value="">—</option><option>Attrezzature</option><option>Ricambi</option><option>Attrezzature e ricambi</option>
+        </select>
+      </label>
+      <label class="fld"><span>Data</span><input type="date" data-f="data"></label>
+      <label class="fld"><span>Ns. riferimento</span><input data-f="rif" autocomplete="off"></label>
+    </div>
+    <p class="hint">Vendita, conto visione e conto vendita vanno inviati come ordini separati.</p>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Cliente</legend>
+    <div class="grid g2">
+      <label class="fld req" data-k="cliente"><span>Ragione sociale</span><input data-f="cliente" autocomplete="organization"></label>
+      <label class="fld"><span>P. IVA / cod. cliente</span><input data-f="piva" inputmode="text"></label>
+    </div>
+    <label class="fld req" data-k="riferimento"><span>Riferimento cliente</span>
+      <input data-f="riferimento" placeholder="Chi ha richiesto l'ordine, n. ordine cliente…">
+    </label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Destinazione</legend>
+    <div class="seg" role="radiogroup">
+      <label><input type="radio" name="o-dest" value="sede" data-f="destTipo"><span>Sede registrata in gestionale</span></label>
+      <label><input type="radio" name="o-dest" value="diversa" data-f="destTipo"><span>Indirizzo diverso</span></label>
+    </div>
+    <div class="dest-diversa" data-show="destTipo=diversa">
+      <label class="fld req" data-k="destIndirizzo"><span>Indirizzo</span><input data-f="dest.indirizzo" autocomplete="street-address"></label>
+      <div class="grid g4">
+        <label class="fld req" data-k="destCap"><span>CAP</span><input data-f="dest.cap" inputmode="numeric" maxlength="5"></label>
+        <label class="fld req span2" data-k="destCitta"><span>Località</span><input data-f="dest.citta"></label>
+        <label class="fld"><span>Prov.</span><input data-f="dest.prov" maxlength="2" class="upper"></label>
+      </div>
+      <div class="grid g2">
+        <label class="fld req" data-k="destTel"><span>Telefono destinazione</span><input type="tel" data-f="dest.telefono"></label>
+        <label class="fld"><span>Referente</span><input data-f="dest.referente"></label>
+      </div>
+    </div>
+    <div class="grid g4" data-show="destTipo=sede">
+      <label class="fld" data-k="capSede"><span>CAP sede</span><input data-f="capSede" inputmode="numeric" maxlength="5"></label>
+    </div>
+    <p class="hint" data-show="destTipo=sede">La merce viene consegnata all'intestatario o alla sede operativa registrata. Il CAP serve per la quotazione del trasporto in porto franco.</p>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Pagamento</legend>
+    <div class="grid g2">
+      <label class="fld req" data-k="pagTipo"><span>Tipologia</span>
+        <select data-f="pagTipo">
+          <option value="">Scegli…</option>
+          <option value="SOLITO">Solito (da anagrafica)</option>
+          <option>BB</option><option>RB</option><option>RD</option><option>Contrassegno</option><option value="ALTRO">Altro…</option>
+        </select>
+      </label>
+      <label class="fld req" data-k="pagScad" data-hide="pagTipo=SOLITO"><span>Scadenza</span>
+        <input data-f="pagScad" list="scadenze" placeholder="es. 30GG FM">
+      </label>
+    </div>
+    <label class="fld" data-show="pagTipo=ALTRO"><span>Specifica</span><input data-f="pagAltro"></label>
+    <p class="hint" data-show="pagTipo=SOLITO">Attrezzature: si usa la modalità registrata in anagrafica (se va aggiornata, avvisa l'amministrazione). Ricambi: BB anticipato o RB 30 gg secondo l'anagrafica.</p>
+    <datalist id="scadenze">
+      <option>Anticipato</option><option>Alla consegna</option><option>30GG FM</option><option>30GG DF</option><option>60GG FM</option><option>60GG DF</option><option>30/60GG FM</option><option>90GG FM</option>
+    </datalist>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Trasporto</legend>
+    <div class="grid g2">
+      <div class="fld req" data-k="porto"><span>Porto</span>
+        <div class="seg col">
+          <label><input type="radio" name="o-porto" value="Franco" data-f="porto"><span>Franco <small>organizzazione e costo a nostro carico</small></span></label>
+          <label><input type="radio" name="o-porto" value="Franco c/addebito" data-f="porto"><span>Franco con addebito <small>organizziamo noi, costo in fattura al cliente</small></span></label>
+          <label><input type="radio" name="o-porto" value="Assegnato" data-f="porto"><span>Assegnato <small>organizzazione e costo a carico del cliente</small></span></label>
+        </div>
+      </div>
+      <div class="fld req" data-k="cura"><span>Trasporto a cura del</span>
+        <div class="seg col">
+          <label><input type="radio" name="o-cura" value="Mittente" data-f="cura"><span>Mittente <small>nostri mezzi</small></span></label>
+          <label><input type="radio" name="o-cura" value="Destinatario" data-f="cura"><span>Destinatario <small>mezzi del destinatario</small></span></label>
+          <label><input type="radio" name="o-cura" value="Vettore" data-f="cura"><span>Vettore <small>compagnia di trasporti</small></span></label>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Porto franco non vuol dire consegna con nostro mezzo: un ricambio spedito lontano è "Vettore", salvo visita del commerciale.</p>
+
+    <div data-show="porto=Franco c/addebito">
+      <label class="fld narrow"><span>Importo addebito trasporto €</span><input data-f="portoImporto" inputmode="decimal" placeholder="da quotare"></label>
+    </div>
+
+    <div class="servizi" data-show="porto=Franco|Franco c/addebito">
+      <span class="sublabel">Servizi aggiuntivi</span>
+      <label class="chk"><input type="checkbox" data-f="pesante"><span>Attrezzatura con base oltre 1 × 2 m e peso oltre 1000 kg</span></label>
+      <p class="warn" data-show="pesante=true">Scarico con sponda idraulica non possibile: a destinazione serve un muletto, oppure un mezzo con gru.</p>
+      <div data-show="pesante=true" class="seg">
+        <label><input type="radio" name="o-scarico" value="Muletto a destinazione" data-f="scaricoPesante"><span>Muletto a destinazione</span></label>
+        <label><input type="radio" name="o-scarico" value="Mezzo con gru" data-f="scaricoPesante"><span>Mezzo con gru</span></label>
+      </div>
+      <label class="chk" data-hide="pesante=true"><input type="checkbox" data-f="servSponda"><span>Scarico con sponda</span></label>
+      <label class="chk"><input type="checkbox" data-f="servPreavviso"><span>Preavviso telefonico</span></label>
+      <label class="chk"><input type="checkbox" data-f="servAppuntamento"><span>Consegna su appuntamento</span></label>
+      <label class="fld"><span>Altri servizi</span><input data-f="servAltro" placeholder="es. consegna al piano, orari di ricevimento…"></label>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Fornitura</legend>
+    <div class="righe" id="righe-ordine"></div>
+    <div class="righe-actions">
+      <button class="btn" data-act="add-riga">Aggiungi riga</button>
+      <button class="btn" data-act="cerca-listino" data-needs-listino>Cerca a listino</button>
+    </div>
+    <div class="totale" id="totale-ordine"></div>
+    <p class="hint">Fa fede il codice, non la descrizione: colori speciali e varianti hanno codici dedicati. Data spedizione vuota = prima data disponibile (non scrivere "subito": chiedi la data di approntamento).</p>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Note</legend>
+    <textarea data-f="note" rows="4" placeholder="Casi particolari, accordi, istruzioni…"></textarea>
+  </fieldset>
+</section>
+
+<!-- ======================= GARANZIA ======================= -->
+<section class="view" id="view-garanzia" data-form="garanzia">
+  <div class="view-head">
+    <h1>Sostituzione in garanzia senza reso</h1>
+    <div class="head-actions">
+      <button class="btn ghost" data-act="nuovo">Nuova richiesta</button>
+    </div>
+  </div>
+
+  <fieldset class="box">
+    <legend>Documento</legend>
+    <div class="grid g3">
+      <label class="fld"><span>Data</span><input type="date" data-f="data"></label>
+      <label class="fld"><span>Sig. (richiedente)</span><input data-f="sig"></label>
+      <label class="fld"><span>Ns. riferimento</span><input data-f="rif" autocomplete="off"></label>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Cliente</legend>
+    <div class="grid g2">
+      <label class="fld req" data-k="cliente"><span>Ragione sociale</span><input data-f="cliente"></label>
+      <label class="fld"><span>P. IVA</span><input data-f="piva"></label>
+    </div>
+    <label class="fld"><span>Indirizzo</span><input data-f="indirizzo"></label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Spedizione</legend>
+    <div class="grid g2">
+      <label class="fld req" data-k="cura"><span>Spedizione con</span>
+        <select data-f="cura"><option value="">Scegli…</option><option>Mittente</option><option>Destinatario</option><option>Vettore</option><option>Corriere espresso</option><option>Ritiro in sede</option></select>
+      </label>
+      <label class="fld req" data-k="porto"><span>Porto</span>
+        <select data-f="porto"><option value="">Scegli…</option><option>Franco</option><option>Franco c/addebito</option><option>Assegnato</option></select>
+      </label>
+    </div>
+    <label class="fld"><span>Luogo di destinazione se diverso</span><input data-f="destinazione" placeholder="Indirizzo completo e telefono"></label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Articoli da sostituire</legend>
+    <div class="righe" id="righe-garanzia"></div>
+    <div class="righe-actions">
+      <button class="btn" data-act="add-riga">Aggiungi riga</button>
+      <button class="btn" data-act="cerca-listino" data-needs-listino>Cerca a listino</button>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Macchina e difetto</legend>
+    <div class="grid g2">
+      <label class="fld req" data-k="modello"><span>Modello macchina</span><input data-f="modello"></label>
+      <label class="fld req" data-k="matricola"><span>Matricola</span><input data-f="matricola"></label>
+    </div>
+    <label class="fld req" data-k="difetto"><span>Difetto riscontrato</span><textarea data-f="difetto" rows="3"></textarea></label>
+    <div class="grid g2">
+      <label class="fld"><span>Approvazione</span><input data-f="approvazione"></label>
+      <label class="fld"><span>Preparato da</span><input data-f="preparatoDa"></label>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Note</legend>
+    <textarea data-f="note" rows="3"></textarea>
+  </fieldset>
+</section>
+
+<!-- ======================= ARCHIVIO ======================= -->
+<section class="view" id="view-archivio">
+  <div class="view-head"><h1>Archivio</h1></div>
+  <p class="hint">Documenti per cui hai creato il PDF. Restano solo su questo dispositivo.</p>
+  <div id="archivio-list"></div>
+</section>
+
+<!-- ======================= IMPOSTAZIONI ======================= -->
+<section class="view" id="view-impostazioni" data-form="settings">
+  <div class="view-head"><h1>Impostazioni</h1></div>
+
+  <fieldset class="box">
+    <legend>Listino prezzi</legend>
+    <div id="listino-status"></div>
+    <div class="righe-actions">
+      <label class="btn primary file-btn">Carica listino Excel<input type="file" id="listino-file" accept=".xlsx,.xls,.xlsm,.ods,.csv"></label>
+      <button class="btn danger" data-act="listino-reset" hidden>Rimuovi listino</button>
+    </div>
+    <div id="listino-map" hidden></div>
+    <p class="hint">Il listino resta solo nella memoria di questo browser, finché non lo sostituisci o lo rimuovi. Non viene inviato a nessun server.</p>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Agente</legend>
+    <div class="grid g2">
+      <label class="fld"><span>Nome e cognome</span><input data-f="agente"></label>
+      <label class="fld"><span>Sigla per i riferimenti</span><input data-f="sigla" maxlength="5" class="upper" placeholder="es. MR"></label>
+      <label class="fld"><span>Telefono</span><input type="tel" data-f="agenteTel"></label>
+      <label class="fld"><span>Email</span><input type="email" data-f="agenteEmail"></label>
+    </div>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Invio</legend>
+    <div class="grid g2">
+      <label class="fld"><span>Email ordini</span><input type="email" data-f="emailOrdini" placeholder="back office"></label>
+      <label class="fld"><span>Email garanzie / assistenza</span><input type="email" data-f="emailGaranzie"></label>
+    </div>
+    <label class="fld"><span>Sempre in copia (separa con virgole)</span><input data-f="emailCC" placeholder="es. referente commerciale"></label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Intestazione PDF</legend>
+    <label class="fld"><span>Nome azienda</span><input data-f="azienda"></label>
+    <div class="logo-row">
+      <div class="logo-prev" id="logo-prev">Nessun logo</div>
+      <div>
+        <label class="btn file-btn">Carica logo<input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp"></label>
+        <button class="btn ghost" data-act="logo-reset">Rimuovi</button>
+      </div>
+    </div>
+    <label class="fld"><span>Piè di pagina modulo garanzia</span><input data-f="footerGaranzia" placeholder="es. codice modulo"></label>
+  </fieldset>
+
+  <fieldset class="box">
+    <legend>Configurazione</legend>
+    <p class="hint">Esporta intestazione, logo ed email in un file da passare ai colleghi. Il listino e l'archivio non vengono inclusi.</p>
+    <div class="righe-actions">
+      <button class="btn" data-act="config-export">Esporta configurazione</button>
+      <label class="btn file-btn">Importa configurazione<input type="file" id="config-file" accept=".json,application/json"></label>
+    </div>
+    <p class="hint small" id="app-version"></p>
+  </fieldset>
+</section>
+</main>
+
+<!-- barra azioni -->
+<div class="actionbar" id="actionbar">
+  <button class="ready" id="ready" aria-live="polite"></button>
+  <button class="btn primary big" id="btn-pdf">Crea PDF</button>
+</div>
+
+<!-- modali -->
+<dialog id="dlg-missing" class="dlg">
+  <h2>Dati da completare</h2>
+  <p class="hint">Gli ordini con dati mancanti o poco chiari vengono rimandati indietro.</p>
+  <ul id="missing-list"></ul>
+  <div class="dlg-actions">
+    <button class="btn ghost" value="close" data-close>Chiudi</button>
+    <button class="btn" id="btn-pdf-anyway">Crea PDF comunque</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-pdf" class="dlg">
+  <h2>PDF pronto</h2>
+  <p id="pdf-name" class="mono-ish"></p>
+  <div class="dlg-stack">
+    <button class="btn primary" id="pdf-share" hidden>Invia / condividi</button>
+    <button class="btn" id="pdf-download">Scarica PDF</button>
+    <button class="btn" id="pdf-open">Apri anteprima</button>
+    <button class="btn" id="pdf-mail">Prepara email</button>
+  </div>
+  <p class="hint small" id="pdf-mail-hint">Da computer: scarica il PDF, poi "Prepara email" apre il messaggio con destinatari e oggetto già compilati. Allega il file scaricato.</p>
+  <div class="dlg-actions"><button class="btn ghost" data-close>Chiudi</button></div>
+</dialog>
+
+<dialog id="dlg-listino" class="dlg wide">
+  <div class="dlg-head">
+    <h2>Cerca a listino</h2>
+    <button class="icon-btn" data-close aria-label="Chiudi">×</button>
+  </div>
+  <div class="grid g-search">
+    <input type="search" id="lst-q" placeholder="Codice o descrizione" autocomplete="off">
+    <select id="lst-fam"><option value="">Tutte le famiglie</option></select>
+  </div>
+  <div id="lst-results" class="lst-results"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="lib/jspdf.plugin.autotable.min.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="js/store.js"></script>
+<script src="js/listino.js"></script>
+<script src="js/pdf.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
