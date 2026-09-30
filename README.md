@@ -8,7 +8,8 @@ Web app installabile (PWA) per compilare ordini cliente e richieste di sostituzi
 - Modulo **Sostituzione in garanzia senza reso**: cliente, spedizione, articoli, modello, matricola e difetto.
 - Controllo dei dati obbligatori prima dell'invio, con elenco di ciò che manca.
 - PDF impaginato come il modulo cartaceo; invio tramite condivisione (smartphone) o download + email precompilata (computer).
-- Archivio locale dei documenti creati: riapri, duplica, rigenera il PDF.
+- Archivio locale sul dispositivo: salva come bozza o crea il PDF, poi riapri per modificare, duplica o elimina.
+- Ogni volta che l'app viene chiusa e riaperta il modulo riparte vuoto, così nulla del documento precedente finisce nel successivo.
 - Funziona offline una volta aperta.
 
 ## Listino prezzi

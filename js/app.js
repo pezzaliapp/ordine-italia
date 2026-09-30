@@ -1,6 +1,6 @@
 /* Ordine Italia - logica dell'interfaccia */
 (function () {
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.1.0';
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -10,17 +10,20 @@
     view: 'ordine',
     settings: Store.merge(Store.defaultSettings(), Store.get(Store.KEYS.settings)),
     forms: {
-      ordine: Store.merge(Store.defaultOrdine(), Store.get(Store.KEYS.ordine)),
-      garanzia: Store.merge(Store.defaultGaranzia(), Store.get(Store.KEYS.garanzia))
+      ordine: Store.merge(Store.defaultOrdine(), Store.sget(Store.KEYS.ordine)),
+      garanzia: Store.merge(Store.defaultGaranzia(), Store.sget(Store.KEYS.garanzia))
     },
     showErrors: { ordine: false, garanzia: false },
     lastPdf: null,
     workbook: null
   };
-  // i campi "privati" (_id, _autoRif…) non sono nei default: li recuperiamo
+  // Riaprendo l'app il modulo parte vuoto: la bozza sta in sessionStorage, non in localStorage.
+  // I campi "privati" (_id, _autoRif…) non sono nei default: li recuperiamo dalla sessione.
+  const PRIV = ['_id', '_autoRif', '_counted', '_dirty', '_status', '_savedAt'];
   for (const k of ['ordine', 'garanzia']) {
-    const saved = Store.get(Store.KEYS[k]);
-    if (saved) for (const p of ['_id', '_autoRif', '_counted']) if (saved[p] !== undefined) state.forms[k][p] = saved[p];
+    Store.del(Store.KEYS[k]); // bozze della v1.0 salvate in modo permanente: eliminate
+    const saved = Store.sget(Store.KEYS[k]);
+    if (saved) for (const p of PRIV) if (saved[p] !== undefined) state.forms[k][p] = saved[p];
   }
 
   const objOf = name => name === 'settings' ? state.settings : state.forms[name];
@@ -34,7 +37,13 @@
   }
   function saveNow(name) {
     if (name === 'settings') Store.set(Store.KEYS.settings, state.settings);
-    else Store.set(Store.KEYS[name], state.forms[name]);
+    else Store.sset(Store.KEYS[name], state.forms[name]);
+  }
+  // modifica fatta dall'utente su un documento
+  function touch(name) {
+    const f = state.forms[name];
+    if (!f._dirty) { f._dirty = true; renderEditBar(name); }
+    persist(name);
   }
 
   function toast(msg, ms = 2600) {
@@ -78,7 +87,7 @@
       else if (el.type === 'checkbox') el.checked = !!v;
       else el.value = v == null ? '' : v;
     });
-    if (name !== 'settings') { renderRighe(name); applyConditions(name); refreshReady(); }
+    if (name !== 'settings') { renderRighe(name); applyConditions(name); refreshReady(); renderEditBar(name); }
   }
 
   function onFieldInput(e) {
@@ -93,7 +102,7 @@
     setPath(obj, el.dataset.f, v);
     if (el.dataset.f === 'rif') obj._autoRif = false;
     if (el.dataset.f === 'pesante' && v) obj.servSponda = false;
-    persist(name);
+    if (name === 'settings') persist(name); else touch(name);
     if (name === 'settings') {
       if (el.dataset.f === 'sigla') refreshAutoRif();
       return;
@@ -190,7 +199,7 @@
     }
     if (e.type === 'change' && el.dataset.r === 'cod') autofillFromListino(name, r, rowEl);
     if (e.type === 'change' || el.dataset.r !== 'cod') $('[data-flag]', rowEl).innerHTML = rigaFlag(r);
-    persist(name);
+    touch(name);
     refreshReady();
   }
 
@@ -218,7 +227,7 @@
     if (item && last && !last.cod && !last.desc) r = last;
     else { r = empty; f.righe.push(r); }
     if (item) fillRigaFromItem(name, r, item);
-    persist(name);
+    touch(name);
     renderRighe(name);
     refreshReady();
     const rows = $$('#righe-' + name + ' .riga');
@@ -374,14 +383,8 @@
     const f = fromArchive ? fromArchive.data : state.forms[name];
     const s = state.settings;
     if (!fromArchive) {
-      if (!String(f.rif || '').trim() || (f._autoRif && !f._counted)) {
-        f.rif = nextRif(false); // consuma il numero progressivo
-        f._autoRif = true;
-      }
-      f._counted = true;
-      if (!f._id) f._id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      saveNow(name);
-      const ri = $(`#view-${name} [data-f="rif"]`); if (ri) ri.value = f.rif;
+      assignRif(name);
+      if (!f._id) f._id = newId();
     }
     let doc;
     try {
@@ -396,18 +399,83 @@
     const filename = [base, safeName(f.rif), safeName(f.cliente)].filter(Boolean).join('_') + '.pdf';
     if (state.lastPdf && state.lastPdf.url) URL.revokeObjectURL(state.lastPdf.url);
     state.lastPdf = { blob, filename, url: URL.createObjectURL(blob), name, form: f };
-    if (!fromArchive) archive(name, f);
+    if (!fromArchive) commitDoc(name, 'pdf');
+    else if (fromArchive.status !== 'pdf') { fromArchive.data._status = 'pdf'; archive(name, fromArchive.data, 'pdf', fromArchive.savedAt); if (state.forms[name]._id === fromArchive.id) { state.forms[name]._status = 'pdf'; saveNow(name); renderEditBar(name); } }
     showPdfDialog();
   }
 
-  function archive(name, f) {
+  const newId = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // consuma il numero progressivo solo quando il documento viene salvato davvero
+  function assignRif(name) {
+    const f = state.forms[name];
+    if (!String(f.rif || '').trim() || (f._autoRif && !f._counted)) {
+      f.rif = nextRif(false);
+      f._autoRif = true;
+    }
+    f._counted = true;
+    const ri = $(`#view-${name} [data-f="rif"]`); if (ri) ri.value = f.rif;
+  }
+
+  // salva il documento in archivio (bozza o PDF creato)
+  function commitDoc(name, status) {
+    const f = state.forms[name];
+    assignRif(name);
+    if (!f._id) f._id = newId();
+    f._status = status;
+    f._dirty = false;
+    f._savedAt = new Date().toISOString();
+    archive(name, f, status);
+    saveNow(name);
+    renderEditBar(name);
+  }
+
+  function saveDraft(name) {
+    const f = state.forms[name];
+    if (!hasContent(name)) { toast('Il documento è vuoto: niente da salvare'); return; }
+    if (f._id && !f._dirty) { toast('Nessuna modifica da salvare'); return; }
+    commitDoc(name, 'bozza');
+    toast('Salvato in Archivio');
+  }
+
+  function deleteCurrent(name) {
+    const f = state.forms[name];
+    if (!f._id) return;
+    if (!confirm(`Eliminare definitivamente ${name === 'ordine' ? 'l\'ordine' : 'la richiesta'} rif. ${f.rif} da questo dispositivo?`)) return;
+    const list = Store.get(Store.KEYS.archivio, []).filter(e => e.id !== f._id);
+    Store.set(Store.KEYS.archivio, list);
+    newDoc(name, true);
+    toast('Documento eliminato');
+  }
+
+  function renderEditBar(name) {
+    const bar = $('#editbar-' + name);
+    if (!bar) return;
+    const f = state.forms[name];
+    const when = f._savedAt ? new Date(f._savedAt).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const stato = f._status === 'pdf' ? 'PDF creato' : 'Bozza';
+    let html;
+    if (f._id) {
+      html = `<div class="eb-txt"><strong>Stai modificando rif. ${esc(f.rif)}</strong><span>${esc(stato)}, salvato il ${esc(when)}${f._dirty ? ' - <em>modifiche non salvate</em>' : ''}</span></div>
+        <button class="btn small danger" data-act="elimina">Elimina</button>`;
+    } else {
+      html = `<div class="eb-txt"><strong>${name === 'ordine' ? 'Nuovo ordine' : 'Nuova richiesta'}</strong><span>${f._dirty ? '<em>Non ancora salvato</em>' : 'Modulo vuoto'}</span></div>`;
+    }
+    bar.innerHTML = html;
+    bar.classList.toggle('is-edit', !!f._id);
+    bar.classList.toggle('is-dirty', !!f._dirty);
+  }
+
+  function archive(name, f, status, keepDate) {
     const list = Store.get(Store.KEYS.archivio, []);
     let tot = null;
     if (name === 'ordine') { tot = 0; f.righe.forEach(r => { const v = PDF.rigaImporto(r); if (v != null) tot += v; }); }
+    const data = JSON.parse(JSON.stringify(f));
+    delete data._dirty;
     const entry = {
-      id: f._id, kind: name, savedAt: new Date().toISOString(),
+      id: f._id, kind: name, savedAt: keepDate || new Date().toISOString(), status: status || 'bozza',
       rif: f.rif, cliente: f.cliente, tipo: name === 'ordine' ? f.tipo : 'Garanzia', total: tot,
-      data: JSON.parse(JSON.stringify(f))
+      data
     };
     const i = list.findIndex(x => x.id === entry.id);
     if (i >= 0) list.splice(i, 1);
@@ -474,12 +542,13 @@
     const f = state.forms[name];
     return !!(f.cliente || f.righe.some(r => r.cod || r.desc) || f.note);
   }
+  function unsavedOk(name, msg) {
+    const f = state.forms[name];
+    if (!f._dirty || !hasContent(name)) return true;
+    return confirm(msg || 'Ci sono modifiche non salvate che andranno perse. Continuare?\n(Annulla e premi "Salva" per tenerle.)');
+  }
   function newDoc(name, force) {
-    if (!force && hasContent(name)) {
-      const f = state.forms[name];
-      const msg = f._counted ? 'Iniziare un nuovo documento? Quello attuale è salvato in Archivio.' : 'Iniziare un nuovo documento? I dati inseriti e non trasformati in PDF andranno persi.';
-      if (!confirm(msg)) return;
-    }
+    if (!force && !unsavedOk(name)) return;
     const f = name === 'ordine' ? Store.defaultOrdine() : Store.defaultGaranzia();
     f.rif = nextRif(); f._autoRif = true; f._counted = false;
     if (name === 'garanzia') { f.sig = ''; f.preparatoDa = state.settings.agente || ''; }
@@ -492,17 +561,22 @@
 
   // ---------------- archivio ----------------
   function renderArchivio() {
-    const list = Store.get(Store.KEYS.archivio, []);
+    const all = Store.get(Store.KEYS.archivio, []);
     const box = $('#archivio-list');
-    if (!list.length) {
-      box.innerHTML = '<div class="empty">Qui trovi ordini e richieste di garanzia dopo averne creato il PDF.</div>';
+    $('#arch-tools').hidden = !all.length;
+    if (!all.length) {
+      box.innerHTML = '<div class="empty">Qui trovi gli ordini e le richieste di garanzia che salvi o di cui crei il PDF.</div>';
       return;
     }
+    const q = Listino.norm($('#arch-q').value), kind = $('#arch-kind').value;
+    const list = all.filter(x => (!kind || x.kind === kind) && (!q || Listino.norm([x.cliente, x.rif, x.tipo, x.data && x.data.riferimento].join(' ')).includes(q)));
+    if (!list.length) { box.innerHTML = '<div class="empty">Nessun documento corrisponde alla ricerca.</div>'; return; }
+    const openIds = [state.forms.ordine._id, state.forms.garanzia._id];
     box.innerHTML = list.map(x => `
-      <div class="arch" data-id="${esc(x.id)}">
+      <div class="arch${openIds.includes(x.id) ? ' is-open' : ''}" data-id="${esc(x.id)}">
         <div class="info">
           <div class="t"><span class="kind">${esc(x.tipo)}</span>${esc(x.cliente || 'Senza cliente')}</div>
-          <div class="m">Rif. ${esc(x.rif)} - ${esc(new Date(x.savedAt).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }))}${x.total ? ' - ' + esc(PDF.eur(x.total)) : ''}</div>
+          <div class="m"><span class="st ${x.status === 'bozza' ? 'draft' : 'done'}">${x.status === 'bozza' ? 'Bozza' : 'PDF creato'}</span>Rif. ${esc(x.rif)} - ${esc(new Date(x.savedAt).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }))}${x.total ? ' - ' + esc(PDF.eur(x.total)) : ''}${openIds.includes(x.id) ? ' - aperto nel modulo' : ''}</div>
         </div>
         <button class="btn small" data-act="arch-pdf">PDF</button>
         <button class="btn small" data-act="arch-open">Modifica</button>
@@ -517,22 +591,25 @@
     const name = x.kind;
     if (act === 'arch-pdf') { createPdf(name, x); return; }
     if (act === 'arch-del') {
-      if (!confirm('Eliminare questo documento dall\'archivio?')) return;
+      if (!confirm(`Eliminare definitivamente rif. ${x.rif} (${x.cliente || 'senza cliente'})?`)) return;
       Store.set(Store.KEYS.archivio, list.filter(e => e.id !== id));
+      if (state.forms[name]._id === id) newDoc(name, true);
       renderArchivio();
+      toast('Documento eliminato');
       return;
     }
-    if (hasContent(name) && !state.forms[name]._counted && !confirm('Il documento che stai compilando non è ancora in archivio e verrà sostituito. Continuare?')) return;
+    if (act === 'arch-open' && state.forms[name]._id === id && state.forms[name]._dirty) { showView(name); return; }
+    if (!unsavedOk(name, `Nel modulo ${name === 'ordine' ? 'Ordine' : 'Garanzia'} ci sono modifiche non salvate che andranno perse. Continuare?`)) return;
     const base = name === 'ordine' ? Store.defaultOrdine() : Store.defaultGaranzia();
     const f = Store.merge(base, JSON.parse(JSON.stringify(x.data)));
-    if (act === 'arch-open') { f._id = x.id; f._autoRif = false; f._counted = true; }
-    else { f._id = null; f.rif = nextRif(); f._autoRif = true; f._counted = false; f.data = Store.today(); }
+    if (act === 'arch-open') { f._id = x.id; f._autoRif = false; f._counted = true; f._status = x.status || 'pdf'; f._savedAt = x.savedAt; f._dirty = false; }
+    else { f._id = null; f.rif = nextRif(); f._autoRif = true; f._counted = false; f.data = Store.today(); f._status = null; f._savedAt = null; f._dirty = true; }
     state.forms[name] = f;
     state.showErrors[name] = false;
     saveNow(name);
     fillForm(name);
     showView(name);
-    toast(act === 'arch-open' ? 'Documento riaperto: il nuovo PDF aggiornerà l\'archivio' : 'Copia creata con un nuovo riferimento');
+    toast(act === 'arch-open' ? 'Documento aperto: "Salva" o "Crea PDF" aggiornano l\'archivio' : 'Copia creata: ricordati di salvarla');
   }
 
   // ---------------- listino: caricamento e stato ----------------
@@ -663,7 +740,7 @@
     if (index != null) {
       const r = state.forms[name].righe[index];
       fillRigaFromItem(name, r, it);
-      persist(name); renderRighe(name); refreshReady();
+      touch(name); renderRighe(name); refreshReady();
     } else addRiga(name, it);
     toast('Aggiunto ' + it.c);
   }
@@ -762,6 +839,9 @@
       const rowEl = a.closest('.riga');
       switch (act) {
         case 'nuovo': newDoc(name); break;
+        case 'salva': saveDraft(name); break;
+        case 'elimina': deleteCurrent(name); break;
+        case 'pdf-nuovo': $('#dlg-pdf').close(); newDoc(state.lastPdf ? state.lastPdf.name : state.view); break;
         case 'add-riga': addRiga(name); break;
         case 'cerca-listino': openPicker(name, null); break;
         case 'cerca-riga': { const i = +rowEl.dataset.i; openPicker(name, i, state.forms[name].righe[i].cod); break; }
@@ -769,13 +849,13 @@
           const f = state.forms[name];
           f.righe.splice(+rowEl.dataset.i, 1);
           if (!f.righe.length) f.righe.push(name === 'ordine' ? Store.emptyRigaOrdine() : Store.emptyRigaGaranzia());
-          persist(name); renderRighe(name); refreshReady(); break;
+          touch(name); renderRighe(name); refreshReady(); break;
         }
         case 'use-desc': case 'use-price': {
           const r = state.forms[name].righe[+rowEl.dataset.i];
           const it = Listino.lookup(r.cod);
           if (it) { if (act === 'use-desc') r.desc = it.d; else r.prezzo = String(it.p).replace('.', ','); }
-          persist(name); renderRighe(name); refreshReady(); break;
+          touch(name); renderRighe(name); refreshReady(); break;
         }
         case 'listino-reset':
           if (confirm('Rimuovere il listino da questo dispositivo?')) { Listino.reset(); state.workbook = null; renderListinoStatus(); renderRighe('ordine'); renderRighe('garanzia'); toast('Listino rimosso'); }
@@ -810,6 +890,12 @@
     $('#lst-q').addEventListener('keydown', e => { if (e.key === 'Enter') { const f = $('#lst-results .lst-item'); if (f) pick(+f.dataset.idx); } });
     $('#lst-fam').addEventListener('change', renderResults);
     $('#lst-results').addEventListener('click', e => { const b = e.target.closest('.lst-item'); if (b) pick(+b.dataset.idx); });
+
+    $('#arch-q').addEventListener('input', renderArchivio);
+    $('#arch-kind').addEventListener('change', renderArchivio);
+    window.addEventListener('beforeunload', e => {
+      if (['ordine', 'garanzia'].some(k => state.forms[k]._dirty && hasContent(k))) { e.preventDefault(); e.returnValue = ''; }
+    });
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') { clearTimeout(saveTimer); saveNow('ordine'); saveNow('garanzia'); saveNow('settings'); }

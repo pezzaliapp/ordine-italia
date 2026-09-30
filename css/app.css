@@ -142,7 +142,22 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);outline:none;box
 .ready.is-ok .meter{border-color:var(--ok);color:var(--ok)}
 .ready.is-ok .meter::before{content:"✓"}
 
+/* ---------- barra documento aperto ---------- */
+.editbar{display:flex;align-items:center;gap:12px;justify-content:space-between;border-left:4px solid var(--line);background:var(--paper);border-radius:4px;padding:8px 12px;margin:0 0 16px;min-height:52px}
+.editbar.is-edit{border-left-color:var(--ink)}
+.editbar.is-dirty{border-left-color:var(--signal)}
+.eb-txt{display:flex;flex-direction:column;line-height:1.3}
+.eb-txt strong{font-family:var(--f-cond);font-weight:600;font-size:1.05rem}
+.eb-txt span{color:var(--steel);font-size:.9rem}
+.eb-txt em{font-style:normal;color:var(--ink);font-weight:600}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap}
+
 /* ---------- archivio ---------- */
+.arch-tools{margin:14px 0 12px}
+.arch.is-open{border-color:var(--ink);box-shadow:inset 4px 0 0 var(--signal)}
+.st{font-family:var(--f-cond);font-weight:600;font-size:.8rem;padding:1px 8px;border-radius:10px;margin-right:8px}
+.st.draft{background:var(--warn-bg);color:var(--ink)}
+.st.done{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
 .arch{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .arch .info{flex:1;min-width:200px}
 .arch .t{font-family:var(--f-cond);font-weight:600;font-size:1.08rem}

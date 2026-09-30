@@ -21,6 +21,14 @@
     catch (e) { console.warn('storage', e); return false; }
   }
   function del(key) { try { localStorage.removeItem(key); } catch (e) {} }
+  // bozza in lavorazione: vive solo finché l'app/scheda resta aperta (sopravvive a un ricaricamento)
+  function sget(key, fallback) {
+    try { const v = sessionStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+    catch (e) { return fallback; }
+  }
+  function sset(key, value) {
+    try { sessionStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; }
+  }
 
   const today = () => {
     const d = new Date();
@@ -75,7 +83,7 @@
   }
 
   window.Store = {
-    KEYS, get, set, del, today, merge,
+    KEYS, get, set, del, sget, sset, today, merge,
     defaultSettings, defaultOrdine, defaultGaranzia, emptyRigaOrdine, emptyRigaGaranzia
   };
 })();

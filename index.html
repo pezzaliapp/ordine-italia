@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
+<script>if(!/\/$|\.html$/.test(location.pathname))location.replace(location.pathname+'/'+location.search+location.hash)</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1d2730">
 <meta name="description" content="Compilazione ordini e sostituzioni in garanzia con PDF, per agenti.">
@@ -36,9 +37,11 @@
   <div class="view-head">
     <h1>Offerta / ordine cliente</h1>
     <div class="head-actions">
-      <button class="btn ghost" data-act="nuovo">Nuovo ordine</button>
+      <button class="btn" data-act="nuovo">Nuovo ordine</button>
+      <button class="btn" data-act="salva">Salva</button>
     </div>
   </div>
+  <div class="editbar" id="editbar-ordine"></div>
   <p class="notice" id="cutoff-notice" hidden></p>
 
   <fieldset class="box">
@@ -177,9 +180,11 @@
   <div class="view-head">
     <h1>Sostituzione in garanzia senza reso</h1>
     <div class="head-actions">
-      <button class="btn ghost" data-act="nuovo">Nuova richiesta</button>
+      <button class="btn" data-act="nuovo">Nuova richiesta</button>
+      <button class="btn" data-act="salva">Salva</button>
     </div>
   </div>
+  <div class="editbar" id="editbar-garanzia"></div>
 
   <fieldset class="box">
     <legend>Documento</legend>
@@ -243,7 +248,11 @@
 <!-- ======================= ARCHIVIO ======================= -->
 <section class="view" id="view-archivio">
   <div class="view-head"><h1>Archivio</h1></div>
-  <p class="hint">Documenti per cui hai creato il PDF. Restano solo su questo dispositivo.</p>
+  <p class="hint">Ordini e richieste salvati su questo dispositivo: da qui li riapri per modificarli, li duplichi o li elimini. Chiudendo l'app il modulo riparte sempre vuoto.</p>
+  <div class="grid g-search arch-tools" id="arch-tools">
+    <input type="search" id="arch-q" placeholder="Cerca per cliente o riferimento" autocomplete="off">
+    <select id="arch-kind"><option value="">Ordini e garanzie</option><option value="ordine">Solo ordini</option><option value="garanzia">Solo garanzie</option></select>
+  </div>
   <div id="archivio-list"></div>
 </section>
 
@@ -331,6 +340,7 @@
     <button class="btn" id="pdf-download">Scarica PDF</button>
     <button class="btn" id="pdf-open">Apri anteprima</button>
     <button class="btn" id="pdf-mail">Prepara email</button>
+    <button class="btn ghost" data-act="pdf-nuovo">Inizia un nuovo documento</button>
   </div>
   <p class="hint small" id="pdf-mail-hint">Da computer: scarica il PDF, poi "Prepara email" apre il messaggio con destinatari e oggetto già compilati. Allega il file scaricato.</p>
   <div class="dlg-actions"><button class="btn ghost" data-close>Chiudi</button></div>

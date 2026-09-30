@@ -1,5 +1,5 @@
 /* Service worker: l'app funziona anche offline. Cambia VERSION a ogni rilascio. */
-const VERSION = 'oi-v1.0.0';
+const VERSION = 'oi-v1.1.0';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/store.js', 'js/listino.js', 'js/pdf.js', 'js/app.js',
